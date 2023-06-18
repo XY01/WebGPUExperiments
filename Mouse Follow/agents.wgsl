@@ -1,3 +1,5 @@
+//include:math.wgsl
+
 // Pixels
 @group(0) @binding(0)  
   var<storage, read_write> pixels : array<vec4f>;
@@ -14,6 +16,9 @@
 
 @group(1) @binding(3) 
   var<uniform> canvasScale : f32;
+
+@group(1) @binding(4) 
+  var<uniform> agentCount : u32;
 
 // Agent positions
 @group(2) @binding(0)  
@@ -53,6 +58,7 @@ fn index(p: vec2f) -> i32 {
 
 
 
+
 @compute @workgroup_size(256)
 fn reset(@builtin(global_invocation_id) id : vec3u) {
   var x = r(f32(id.x));
@@ -89,27 +95,44 @@ fn simulate(@builtin(global_invocation_id) id : vec3u)
     dirToMouse = rotate(currentDirection, maxTurnRadians * turnDir);
   }
 
-  // Limit and vary steering force
+  // Limit and vary steerForceing force
   var maxSpeed = 4.0 + rand;
   var desiredVel = dirToMouse * maxSpeed;
-  var steer = desiredVel - v;
-  var maxForce = lerp(0.1, 0.6, rand);
-  steer = normalize(steer) * maxForce;
+  var steerForce = desiredVel - v;
+  var maxForce = lerp(0.1, 0.4, rand);
+  steerForce = normalize(steerForce) * maxForce;
 
+  // avoid force
+  var count : u32 = 0;
+  var avoidForce : vec2f = vec2f(0,0);
+  var effectDist = rez * 0.3;
+  for (var i : u32 = 0; i < agentCount; i++)
+  {
+    if(i != id.x)
+    {
+        var vecToPos = p - positions[i];
+        var dist = length(vecToPos);        
+        if(dist < effectDist)
+        {
+          var distScalar = pow((1-clamp(dist / effectDist,0,1)),3);
+          avoidForce = normalize(vecToPos) * distScalar * 1;
+        }
+    }
+  }
 
   // Acceleration and drag
-  var acc = steer;
+  var acc = steerForce;
+  acc += avoidForce;
   v += acc;
 
-  var drag = -v * lerp(0.001, 0.04, 1-rand);;
+  var drag = -v * lerp(0.005, 0.1, 1-rand);
   v += drag;
 
 
   // Clamp velocities
-  var clampSpeed = 10.0;
+  var clampSpeed = 8.0;
   v.x = clamp(v.x, -clampSpeed, clampSpeed);
   v.y = clamp(v.y, -clampSpeed, clampSpeed);
-
 
 
   // Accumulated
@@ -121,7 +144,8 @@ fn simulate(@builtin(global_invocation_id) id : vec3u)
   positions[id.x] = p;
   velocities[id.x] = v;
 
-  var red : f32 = pow(1-length(mouseNorm - posNorm),2);
+  var red : f32 = pow(length(v)/5,3);
+  
   pixels[index(p)] = vec4(red, 0.0, 0.0, 1.0);
 }
 

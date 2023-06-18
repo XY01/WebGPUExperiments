@@ -97,12 +97,19 @@ async function main() {
   });
   gpu.queue.writeBuffer(canvasScale, 0, new Float32Array([uniforms.rez * settings.scale]));
 
+  const agentCount = gpu.createBuffer({
+    size: sizes.f32,
+    usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.UNIFORM,
+  });
+  gpu.queue.writeBuffer(agentCount, 0, new Uint32Array([settings.count]));
+
   const uniformsLayout = gpu.createBindGroupLayout({
     entries: [
       { visibility, binding: 0, buffer: { type: "uniform" } },
       { visibility, binding: 1, buffer: { type: "uniform" } },
       { visibility, binding: 2, buffer: { type: "uniform" } },
       { visibility, binding: 3, buffer: { type: "uniform" } },
+      { visibility, binding: 4, buffer: { type: "uniform" } },
     ],
   });
   const uniformsBuffersBindGroup = gpu.createBindGroup({
@@ -112,6 +119,7 @@ async function main() {
       { binding: 1, resource: { buffer: timeBuffer } },
       { binding: 2, resource: { buffer: mousePosBuffer } },
       { binding: 3, resource: { buffer: canvasScale } },
+      { binding: 4, resource: { buffer: agentCount } },
     ],
   });
 
